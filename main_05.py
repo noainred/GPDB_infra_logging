@@ -20,28 +20,35 @@ mariadb = pymysql.connect(
             db='gpdb_infra_mon', 
             charset='utf8', autocommit=True)
 
+
+
 def make_table(yearmonth):
-    sql = """ CREATE TABLE %s (
-    `field_name` char(1) DEFAULT NULL,
-    `field_date` date DEFAULT NULL,
-    `field_time` time DEFAULT NULL,
-    `field_cpu_usr` int(11) DEFAULT NULL,
-    `field_cpu_sys` int(11) DEFAULT NULL,
-    `field_cpu_idle` int(11) DEFAULT NULL,
-    `field_cpu_wai` int(11) DEFAULT NULL,
-    `field_cpu_hiq` int(11) DEFAULT NULL,
-    `field_cpu_siq` int(11) DEFAULT NULL,
-    `field_dsk_read` int(11) DEFAULT NULL,
-    `field_dsk_writ` int(11) DEFAULT NULL,
-    `field_net_recv` int(11) DEFAULT NULL,
-    `field_net_send` int(11) DEFAULT NULL,
-    `field_memory_used` int(11) DEFAULT NULL,
-    `field_memory_buff` int(11) DEFAULT NULL,
-    `field_memory_cach` int(11) DEFAULT NULL,
-    `field_memory_free` int(11) DEFAULT NULL
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf16;
-    """
-    curs.execute(sql, (yearmonth))
+    tablename = "gpdb_infra_mon." + str(yearmonth)
+    curs = mariadb.cursor()
+    sql = """ CREATE TABLE IF NOT EXISTS """ + str(tablename) + """ (
+  `field_name` varchar(100) DEFAULT NULL,
+  `field_date` varchar(100) DEFAULT NULL,
+  `field_time` varchar(100) DEFAULT NULL,
+  `field_cpu_usr` varchar(100) DEFAULT NULL,
+  `field_cpu_sys` varchar(100) DEFAULT NULL,
+  `field_cpu_idle` varchar(100) DEFAULT NULL,
+  `field_cpu_wai` varchar(100) DEFAULT NULL,
+  `field_cpu_hiq` varchar(100) DEFAULT NULL,
+  `field_cpu_siq` varchar(100) DEFAULT NULL,
+  `field_dsk_read` varchar(100) DEFAULT NULL,
+  `field_dsk_writ` varchar(100) DEFAULT NULL,
+  `field_net_recv` varchar(100) DEFAULT NULL,
+  `field_net_send` varchar(100) DEFAULT NULL,
+  `field_memory_used` varchar(100) DEFAULT NULL,
+  `field_memory_buff` varchar(100) DEFAULT NULL,
+  `field_memory_cach` varchar(100) DEFAULT NULL,
+  `field_memory_free` varchar(100) DEFAULT NULL
+) ;"""
+    #tablename = "gpdb_infra_mon." + yearmonth
+    curs.execute(sql)
+    mariadb.commit()
+logging.debug("SQL End")
+mariadb.commit()
 
 def incloud_x(readdata):
     tmp = readdata
@@ -80,6 +87,14 @@ for j in range(1, nodecount + 1):
 
 for file_name in os.listdir(options_read_dir):
     if "sys." in file_name:
+        yearmonth = file_name[4:10]
+        make_table(yearmonth)
+
+for file_name in os.listdir(options_read_dir):
+    if "sys." in file_name:
+        yearmonth = file_name[4:10]
+        make_table(yearmonth)
+
         source_file = open(options_read_dir + file_name, "r")  
         print(source_file)
         for data in source_file:
@@ -129,22 +144,19 @@ for file_name in os.listdir(options_read_dir):
                     globals()['sdw{}'.format(j) + '_outfile'].close
 
 
-                    try:
-                        curs = mariadb.cursor()
-                        sql = """insert into gpdb_infra_mon.202107(
-                                    field_name, field_date, field_time, 
+                    
+                    curs = mariadb.cursor()
+                    tablename = "gpdb_infra_mon." + str(yearmonth)
+                    sql = """insert into """ + tablename + """(field_name, field_date, field_time, 
                                     field_cpu_usr, field_cpu_sys, field_cpu_idle, field_cpu_wai, field_cpu_hiq, field_cpu_siq,
                                     field_dsk_read, field_dsk_writ,
                                     field_net_recv, field_net_send,
-                                    field_memory_used, field_memory_buff, field_memory_cach, field_memory_free)
-                                values (%s, %s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) ON DUPLICATE KEY UPDATE 
-                                        field_name=%s, field_date=%s, field_time=%s, 
-                                        field_cpu_usr=%s, field_cpu_sys=%s, field_cpu_idle=%s, field_cpu_wai=%s, field_cpu_hiq=%s, field_cpu_siq=%s,
-                                        field_dsk_read=%s, field_dsk_writ=%s,
-                                        field_net_recv=%s, field_net_send=%s,
-                                        field_memory_used=%s, field_memory_buff=%s, field_memory_cach=%s, field_memory_free=%s)"""
-                        curs.execute(sql, (
-                                    field_name, field_date, field_time, \
+                                    field_memory_used, field_memory_buff, field_memory_cach, field_memory_free) 
+                            values (%s, %s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) 
+                            ON DUPLICATE KEY UPDATE 
+                                        field_name=%s, field_date=%s,field_time=%s,field_cpu_usr=%s,field_cpu_sys=%s,field_cpu_idle=%s,field_cpu_wai=%s,field_cpu_hiq=%s,field_cpu_siq=%s,field_dsk_read=%s,field_dsk_writ=%s,field_net_recv=%s,
+                                        field_memory_used=%s,field_memory_buff=%s,field_memory_buff=%s,field_memory_cach=%s,field_memory_free=%s """
+                    curs.execute(sql, (field_name, field_date, field_time, \
                                     field_cpu_usr, field_cpu_sys, field_cpu_idle, field_cpu_wai, field_cpu_hiq, field_cpu_siq,\
                                     field_dsk_read, field_dsk_writ, \
                                     field_net_recv, field_net_send, \
@@ -153,20 +165,12 @@ for file_name in os.listdir(options_read_dir):
                                     field_cpu_usr, field_cpu_sys, field_cpu_idle, field_cpu_wai, field_cpu_hiq, field_cpu_siq,\
                                     field_dsk_read, field_dsk_writ, \
                                     field_net_recv, field_net_send, \
-                                    field_memory_used, field_memory_buff, field_memory_cach, field_memory_free
-                                    ))
-                        mariadb.commit()
-                        logging.debug("SQL End")
-                        mariadb.commit()
-                    except:
-                        logging.debug("SQL Error: ")
-                        print("ERR SQL")
-                        datainsertedtodb = False
-
-                    finally:
-                        logging.debug('SQL 입력완료')
-                        curs.close()
-
+                                    field_memory_used, field_memory_buff, field_memory_cach, field_memory_free))
+                    mariadb.commit()
+                    logging.debug("SQL End")
+                    mariadb.commit()
+                    
+                    
 
                     
                     #y = str(x[0]) + ',' + str(x[1]) + ',' + str(x[2]) + ',' + str(x[3]) + ',' + str(x[4]) + ',' + str(x[5])
