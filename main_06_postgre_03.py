@@ -79,31 +79,33 @@ def make_database():
 
 
 def make_table(yearmonth):
-    tablename = str("infralogdb.schemainfralogdb" + '.' + project + '_' + str(yearmonth))
-    curs = greenplumdb.cursor()
-    sql = """ 
-        CREATE TABLE IF NOT EXISTS """ + str(tablename) + """ (
-        field_name varchar NULL,
-        field_date varchar NULL,
-        field_time varchar NULL,
-        field_cpu_usr varchar NULL,
-        field_cpu_sys varchar NULL,
-        field_cpu_idle varchar NULL,
-        field_cpu_wai varchar NULL,
-        field_cpu_hiq varchar NULL,
-        field_cpu_siq varchar NULL,
-        field_dsk_read varchar NULL,
-        field_dsk_writ varchar NULL,
-        field_net_recv varchar NULL,
-        field_net_send varchar NULL,
-        field_memory_used varchar NULL,
-        field_memory_buff varchar NULL,
-        field_memory_cach varchar NULL,
-        field_memory_free varchar NULL
-        ) ;"""
-    curs.execute(sql, (tablename))
-    greenplumdb.commit()
-
+    try:
+        tablename = str("infralogdb.schemainfralogdb" + '.' + project + '_' + str(yearmonth))
+        curs = greenplumdb.cursor()
+        sql = """ 
+            CREATE TABLE IF NOT EXISTS """ + str(tablename) + """ (
+            field_name varchar NULL,
+            field_date varchar NULL,
+            field_time varchar NULL,
+            field_cpu_usr varchar NULL,
+            field_cpu_sys varchar NULL,
+            field_cpu_idle varchar NULL,
+            field_cpu_wai varchar NULL,
+            field_cpu_hiq varchar NULL,
+            field_cpu_siq varchar NULL,
+            field_dsk_read varchar NULL,
+            field_dsk_writ varchar NULL,
+            field_net_recv varchar NULL,
+            field_net_send varchar NULL,
+            field_memory_used varchar NULL,
+            field_memory_buff varchar NULL,
+            field_memory_cach varchar NULL,
+            field_memory_free varchar NULL
+            ) ;"""
+        curs.execute(sql, (tablename))
+        greenplumdb.commit()
+    except:
+        print("GPDB make tables ERROR")
 
 def incloud_x(readdata):
     tmp = readdata
@@ -158,28 +160,25 @@ def insert_mariadb():
     logging.debug("SQL End")
 
 def insert_gpdb():
-    curs = greenplumdb.cursor()
-    tablename = str("infralogdb.schemainfralogdb" + '.' + project + '_' + str(yearmonth))
-    sql = """insert into """ + tablename + """(field_name, field_date, field_time, 
+    try:
+        curs = greenplumdb.cursor()
+        tablename = str("infralogdb.schemainfralogdb" + '.' + project + '_' + str(yearmonth))
+        sql = """insert into """ + tablename + """(field_name, field_date, field_time, 
                     field_cpu_usr, field_cpu_sys, field_cpu_idle, field_cpu_wai, field_cpu_hiq, field_cpu_siq,
                     field_dsk_read, field_dsk_writ,
                     field_net_recv, field_net_send,
                     field_memory_used, field_memory_buff, field_memory_cach, field_memory_free) 
             values (%s, %s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)"""
-    sql_value = (field_name, field_date, field_time, \
-                field_cpu_usr, field_cpu_sys, field_cpu_idle, field_cpu_wai, field_cpu_hiq, field_cpu_siq,\
-                field_dsk_read, field_dsk_writ, \
-                field_net_recv, field_net_send, \
-                field_memory_used, field_memory_buff, field_memory_cach, field_memory_free, \
-                field_name, field_date, field_time, \
+        sql_value = (field_name, field_date, field_time, \
                 field_cpu_usr, field_cpu_sys, field_cpu_idle, field_cpu_wai, field_cpu_hiq, field_cpu_siq,\
                 field_dsk_read, field_dsk_writ, \
                 field_net_recv, field_net_send, \
                 field_memory_used, field_memory_buff, field_memory_cach, field_memory_free)
-            
-    curs.execute(sql, sql_value)
-    greenplumdb.commit()
-    logging.debug("SQL End")
+        curs.execute(sql, sql_value)
+        #print(sql)
+        greenplumdb.commit()
+    except:
+        print("GPDB insert ERROR")
 
 def make_schema():
     curs = greenplumdb.cursor()
@@ -196,8 +195,9 @@ for i in range (1, nodecount + 1):
     globals()['sdw{}'.format(i)] = "sdw" + str((i))
 
 for j in range(1, nodecount + 1):
-    globals()['sdw{}'.format(j) + '_outfile'] = open(options_write_dir + globals()['sdw{}'.format(j)] + '_outfile', 'w')
-    #globals()['sdw{}'.format(j) + '_outfile_deli'] = open(options_write_dir + globals()['sdw{}'.format(j)] + '_outfile_01_deli', 'w')
+    globals()['sdw{}'.format(j) + '_parsed'] = open(options_write_dir + globals()['sdw{}'.format(j)] + '_parsed', 'w')
+    #globals()['sdw{}'.format(j) + '_parsed_deli'] = open(options_write_dir + globals()['sdw{}'.format(j)] + '_parsed_01_deli', 'w')
+
 
 for file_name in os.listdir(options_read_dir):
     if "sys." in file_name:
@@ -206,9 +206,10 @@ for file_name in os.listdir(options_read_dir):
 
 for file_name in os.listdir(options_read_dir):
     if "sys." in file_name:
-        yearmonth = file_name[4:10]
-        make_table(yearmonth)
         
+        writefilename = open((options_write_dir +  date_year + "-" + date_moth + "-" + date_day + '-' + field_name) + ".log", 'w')
+        
+        make_table(yearmonth)
         source_file = open(options_read_dir + file_name, "r")  
         print(source_file)
         for data in source_file:
@@ -217,7 +218,8 @@ for file_name in os.listdir(options_read_dir):
                     x = []
                     x = (data.split('|'))
                     field_1st       = x[0].split()
-                    field_name      = field_1st[0]
+                    field_name      = field_1st[0][1:-1]
+
 
                     field_2nd       = x[1].split()
                     field_date      = field_2nd[0]
@@ -250,34 +252,25 @@ for file_name in os.listdir(options_read_dir):
                     + field_cpu_usr + "," + field_cpu_sys + "," + field_cpu_idle + "," + field_cpu_wai + ',' + field_cpu_hiq + "," + field_cpu_siq + ","  \
                     + field_dsk_read + "," + field_dsk_writ  + "," \
                     + field_net_recv + "," + field_net_send + "," \
-                    + field_memory_used + "," + field_memory_buff + "," + field_memory_cach + "," + field_memory_free + "\n"        
-                                        
-                    globals()['sdw{}'.format(k) + '_outfile'].writelines(writedata)    
+                    + field_memory_used + "," + field_memory_buff + "," + field_memory_cach + "," + field_memory_free + "\n"
+
+                    yearmonth = file_name[4:10]
+                    date_year =  (str(file_name[4:8]))
+                    date_moth =  (str(file_name[8:10]))
+                    date_day =   (str(file_name[10:12]))
+                    
+                    print("Data: " + date_year + "-" + date_moth + "-" + date_day + '-' + field_name)
+                    
+                    globals()['sdw{}'.format(k) + '_parsed'].writelines(writedata)
+                    
+                    #writefilename = open((options_write_dir +  date_year + "-" + date_moth + "-" + date_day + '-' + field_name) + ".log", 'w')
+                    writefilename.writelines(writedata)
+
 
                     #insert_mariadb()                    
                     #insert_gpdb()
 
-                    curs = greenplumdb.cursor()
-                    tablename = str("infralogdb.schemainfralogdb" + '.' + project + '_' + str(yearmonth))
-                    sql = """insert into """ + tablename + """(field_name, field_date, field_time, 
-                                    field_cpu_usr, field_cpu_sys, field_cpu_idle, field_cpu_wai, field_cpu_hiq, field_cpu_siq,
-                                    field_dsk_read, field_dsk_writ,
-                                    field_net_recv, field_net_send,
-                                    field_memory_used, field_memory_buff, field_memory_cach, field_memory_free) 
-                            values (%s, %s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)"""
-                    sql_value = (field_name, field_date, field_time, \
-                                field_cpu_usr, field_cpu_sys, field_cpu_idle, field_cpu_wai, field_cpu_hiq, field_cpu_siq,\
-                                field_dsk_read, field_dsk_writ, \
-                                field_net_recv, field_net_send, \
-                                field_memory_used, field_memory_buff, field_memory_cach, field_memory_free)
-                    curs.execute(sql, sql_value)
-                    greenplumdb.commit()
-
-
-                    #y = str(x[0]) + ',' + str(x[1]) + ',' + str(x[2]) + ',' + str(x[3]) + ',' + str(x[4]) + ',' + str(x[5])
-                    #print(y)
-
 for j in range(1, nodecount + 1):
-    globals()['sdw{}'.format(k) + '_outfile'].close 
+    globals()['sdw{}'.format(k) + '_parsed'].close 
 
 print("Finished")
