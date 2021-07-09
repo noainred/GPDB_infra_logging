@@ -9,15 +9,15 @@ import psycopg2
 
 ############################
 project = "sbp_oss1"
+
 nodecount = 8
 mode = "dev"
 #mode = "prd"
 
 ### CASE: mariadb
 #database = 'mariadb'
-
-### CASE: greenplum
 database = 'greenplum'
+
 
 ############################
 
